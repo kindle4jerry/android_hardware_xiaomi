@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The LineageOS Project
+ * Copyright (C) 2021-2022 The LineageOS Project
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -45,39 +45,29 @@ bool writeToFile(const std::string& file, uint32_t content) {
     return writeToFile(file, std::to_string(content));
 }
 
-bool isLit(uint32_t color) {
-    return color & 0x00ffffff;
-}
-
-argb_t colorToArgb(uint32_t color) {
-    argb_t r;
-
+rgb::rgb(uint32_t color) {
     // Extract brightness from AARRGGBB.
-    r.alpha = (color >> 24) & 0xFF;
+    uint8_t alpha = (color >> 24) & 0xFF;
 
     // Retrieve each of the RGB colors
-    r.red = (color >> 16) & 0xFF;
-    r.green = (color >> 8) & 0xFF;
-    r.blue = color & 0xFF;
+    red = (color >> 16) & 0xFF;
+    green = (color >> 8) & 0xFF;
+    blue = color & 0xFF;
 
     // Scale RGB colors if a brightness has been applied by the user
-    if (r.alpha > 0 && r.alpha < 255) {
-        r.red = r.red * r.alpha / 0xFF;
-        r.green = r.green * r.alpha / 0xFF;
-        r.blue = r.blue * r.alpha / 0xFF;
+    if (alpha > 0 && alpha < 255) {
+        red = red * alpha / 0xFF;
+        green = green * alpha / 0xFF;
+        blue = blue * alpha / 0xFF;
     }
-
-    return r;
 }
 
-uint32_t argbToBrightness(argb_t c_argb) {
-    return (77 * c_argb.red + 150 * c_argb.green + 29 * c_argb.blue) >> 8;
+bool rgb::isLit() {
+    return !!red || !!green || !!blue;
 }
 
-uint32_t colorToBrightness(uint32_t color) {
-    argb_t c_argb = colorToArgb(color);
-
-    return argbToBrightness(c_argb);
+uint8_t rgb::toBrightness() {
+    return (77 * red + 150 * green + 29 * blue) >> 8;
 }
 
 } // namespace light

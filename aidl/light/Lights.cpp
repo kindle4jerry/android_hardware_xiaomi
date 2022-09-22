@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The LineageOS Project
+ * Copyright (C) 2021-2022 The LineageOS Project
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,11 +14,6 @@ namespace aidl {
 namespace android {
 namespace hardware {
 namespace light {
-
-static const std::string kAllBacklightPaths[] = {
-    "/sys/class/backlight/panel0-backlight/brightness",
-    "/sys/class/leds/lcd-backlight/brightness",
-};
 
 static const std::string kAllButtonsPaths[] = {
     "/sys/class/leds/button-backlight/brightness",
@@ -48,13 +43,9 @@ static const HwLight kButtonsHwLight = AutoHwLight(LightType::BUTTONS);
 static const HwLight kNotificationHwLight = AutoHwLight(LightType::NOTIFICATIONS);
 
 Lights::Lights() {
-    for (auto& backlight : kAllBacklightPaths) {
-        if (!fileWriteable(backlight))
-            continue;
-
-        mBacklightPath = backlight;
+    mBacklightDevice = getBacklightDevice();
+    if (mBacklightDevice) {
         mLights.push_back(kBacklightHwLight);
-        break;
     }
 
     for (auto& buttons : kAllButtonsPaths) {
@@ -74,15 +65,18 @@ Lights::Lights() {
 }
 
 ndk::ScopedAStatus Lights::setLightState(int32_t id, const HwLightState& state) {
+    rgb_t color(state.color);
+    rgb_t batteryStateColor;
+
     LightType type = static_cast<LightType>(id);
     switch (type) {
         case LightType::BACKLIGHT:
-            if (!mBacklightPath.empty())
-                writeToFile(mBacklightPath, colorToBrightness(state.color));
+            if (mBacklightDevice)
+                mBacklightDevice->setBacklight(color.toBrightness());
             break;
         case LightType::BUTTONS:
             for (auto& buttons : mButtonsPaths)
-                writeToFile(buttons, isLit(state.color));
+                writeToFile(buttons, color.isLit());
             break;
         case LightType::BATTERY:
         case LightType::NOTIFICATIONS:
@@ -91,7 +85,8 @@ ndk::ScopedAStatus Lights::setLightState(int32_t id, const HwLightState& state) 
                 mLastBatteryState = state;
             else
                 mLastNotificationState = state;
-            setLED(isLit(mLastBatteryState.color) ? mLastBatteryState : mLastNotificationState);
+            batteryStateColor = rgb_t(mLastBatteryState.color);
+            setLED(batteryStateColor.isLit() ? mLastBatteryState : mLastNotificationState);
             mLEDMutex.unlock();
             break;
         default:
@@ -111,8 +106,8 @@ ndk::ScopedAStatus Lights::getLights(std::vector<HwLight> *_aidl_return) {
 
 void Lights::setLED(const HwLightState& state) {
     bool rc = true;
-    argb_t color = colorToArgb(state.color);
-    uint32_t blink = (state.flashOnMs != 0 && state.flashOffMs != 0);
+    rgb_t color(state.color);
+    uint8_t blink = (state.flashOnMs != 0 && state.flashOffMs != 0);
 
     switch (state.flashMode) {
         case FlashMode::HARDWARE:
@@ -132,7 +127,7 @@ void Lights::setLED(const HwLightState& state) {
             FALLTHROUGH_INTENDED;
         default:
             if (mWhiteLED) {
-                rc = kLEDs[WHITE].setBrightness(colorToBrightness(state.color));
+                rc = kLEDs[WHITE].setBrightness(color.toBrightness());
             } else {
                 rc = kLEDs[RED].setBrightness(color.red);
                 rc &= kLEDs[GREEN].setBrightness(color.green);

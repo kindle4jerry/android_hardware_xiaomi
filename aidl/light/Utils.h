@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The LineageOS Project
+ * Copyright (C) 2021-2022 The LineageOS Project
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -13,21 +13,23 @@ namespace android {
 namespace hardware {
 namespace light {
 
-typedef struct argb {
-    uint32_t alpha;
-    uint32_t red;
-    uint32_t green;
-    uint32_t blue;
-} argb_t;
+typedef struct rgb {
+    rgb(uint8_t r, uint8_t g, uint8_t b) : red(r), green(g), blue(b) {};
+    rgb(uint32_t color);
+    rgb() : red(0), green(0), blue(0) {};
+
+    uint8_t red;
+    uint8_t green;
+    uint8_t blue;
+
+    bool isLit();
+    uint8_t toBrightness();
+} rgb_t;
 
 bool fileWriteable(const std::string& file);
 bool readFromFile(const std::string& file, std::string *content);
 bool readFromFile(const std::string& file, uint32_t *content);
 bool writeToFile(const std::string& file, uint32_t content);
-bool isLit(uint32_t color);
-argb_t colorToArgb(uint32_t color);
-uint32_t argbToBrightness(argb_t c_argb);
-uint32_t colorToBrightness(uint32_t color);
 
 } // namespace light
 } // namespace hardware
